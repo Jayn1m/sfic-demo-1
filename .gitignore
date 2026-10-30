@@ -1,0 +1,59 @@
+# Environment variables & API keys
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+botad_grievances.db
+botad_grievances.db-journal
+botad_grievances.db-wal
+botad_grievances.db-shm
+
+# Node / Frontend artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+.output/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary & Audio Uploads
+*.webm
+*.wav
+*.mp3
+*.ogg
+temp/
+tmp/
+*.tmp
+
+# Operating System & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+logs/
