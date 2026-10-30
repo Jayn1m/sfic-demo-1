@@ -237,7 +237,6 @@ export default function App() {
 
       setSubmissionResult(res.data);
       setGrievanceText('');
-      setAudioBlob(null);
       setUsedVoiceInput(false);
     } catch (err) {
       alert("Error submitting grievance: " + (err.response?.data?.detail || err.message));
