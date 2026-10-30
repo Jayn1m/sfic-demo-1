@@ -32,11 +32,9 @@ export default function App() {
 
   // Voice Recording State
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [audioBlob, setAudioBlob] = useState(null);
+  const [speechLang, setSpeechLang] = useState('gu-IN');
+  const [speechError, setSpeechError] = useState('');
   const [usedVoiceInput, setUsedVoiceInput] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
   const recognitionRef = useRef(null);
 
   // Tracking State
@@ -114,92 +112,88 @@ export default function App() {
   };
 
   // Voice Recording Handlers
-  const startRecording = async () => {
-    setAudioBlob(null);
+  const startRecording = () => {
+    setSpeechError('');
     setUsedVoiceInput(true);
 
-    // 1. In-browser live SpeechRecognition (Types Gujarati text live into Grievance Description as user speaks)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'gu-IN'; // Gujarati (India)
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognitionRef.current = recognition;
 
-        recognition.onresult = (event) => {
-          let fullTranscript = '';
-          for (let i = 0; i < event.results.length; i++) {
-            fullTranscript += event.results[i][0].transcript;
-          }
-          if (fullTranscript.trim()) {
-            setGrievanceText(fullTranscript);
-          }
-        };
-
-        recognition.onerror = (event) => {
-          console.warn("Speech recognition notice:", event.error);
-        };
-
-        recognition.start();
-      } catch (err) {
-        console.warn("Speech recognition init notice:", err);
-      }
+    if (!SpeechRecognition) {
+      setSpeechError(
+        lang === 'gu'
+          ? "તમારા બ્રાઉઝરમાં સ્પીચ રેકગ્નિશન ઉપલબ્ધ નથી. કૃપા કરીને Google Chrome અથવા Microsoft Edge વાપરો."
+          : "Web Speech Recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge."
+      );
+      return;
     }
 
-    // 2. MediaRecorder for high-fidelity audio capture & backend STT fallback
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      audioChunksRef.current = [];
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
 
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      const recognition = new SpeechRecognition();
+      recognition.lang = speechLang; // 'gu-IN' (Gujarati), 'hi-IN', or 'en-IN'
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognitionRef.current = recognition;
+
+      let accumulatedFinal = '';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setSpeechError('');
+      };
+
+      recognition.onresult = (event) => {
+        let currentInterim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          if (res.isFinal) {
+            accumulatedFinal += res[0].transcript + ' ';
+          } else {
+            currentInterim += res[0].transcript;
+          }
+        }
+        const fullLiveText = (accumulatedFinal + currentInterim).trim();
+        if (fullLiveText) {
+          setGrievanceText(fullLiveText);
         }
       };
 
-      mediaRecorderRef.current.onstop = async () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-
-        // Stop all audio stream tracks
-        stream.getTracks().forEach((track) => track.stop());
-
-        // If SpeechRecognition did not populate text, transcribe via backend STT into Grievance Description
-        setGrievanceText((currentText) => {
-          if (!currentText || currentText.trim().length === 0) {
-            setIsTranscribing(true);
-            const formData = new FormData();
-            formData.append('audio_file', blob, 'citizen_voice.webm');
-            api.transcribeVoice(formData)
-              .then((res) => {
-                if (res.data?.transcript_gu) {
-                  setGrievanceText(res.data.transcript_gu);
-                }
-              })
-              .catch((err) => {
-                console.error("Backend voice transcription error:", err);
-              })
-              .finally(() => {
-                setIsTranscribing(false);
-              });
-          }
-          return currentText;
-        });
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === 'not-allowed') {
+          setSpeechError(
+            lang === 'gu'
+              ? "માઇક્રોફોન પરવાનગી બ્લોક છે. કૃપા કરીને બ્રાઉઝર એડ્રેસ બારમાં માઇક્રોફોનને Allow કરો."
+              : "Microphone permission denied. Please allow microphone access in your browser."
+          );
+        } else if (event.error === 'network') {
+          setSpeechError(
+            lang === 'gu'
+              ? "ઇન્ટરનેટ કનેક્શન તપાસો (Google સ્પીચ સર્વિસ કનેક્ટ થઈ શકી નથી)."
+              : "Network error connecting to speech recognition service."
+          );
+        } else if (event.error === 'no-speech') {
+          return;
+        } else {
+          setSpeechError(`Notice: ${event.error}`);
+        }
+        setIsRecording(false);
       };
 
-      mediaRecorderRef.current.start();
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
       setIsRecording(true);
     } catch (err) {
-      console.warn("Microphone access simulated or restricted:", err);
-      // Fallback demo simulation
-      setIsRecording(true);
-      setTimeout(() => {
-        setIsRecording(false);
-        setGrievanceText("અમારા ગામ પાળિયાદમાં પાણીની પાઈપલાઈન તૂટી ગઈ છે અને છેલ્લા ૪ દિવસથી પીવાનું પાણી નથી આવતું. તાત્કાલિક સમારકામ કરાવો.");
-      }, 3000);
+      console.error("Failed to start speech recognition:", err);
+      setSpeechError(err.message || "Failed to start speech recognition.");
+      setIsRecording(false);
     }
   };
 
@@ -207,10 +201,9 @@ export default function App() {
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch (e) {}
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.error("Error stopping recognition:", e);
+      }
     }
     setIsRecording(false);
   };
@@ -233,25 +226,14 @@ export default function App() {
     setIsSubmitting(true);
     try {
       let res;
-      if (audioBlob) {
-        const formData = new FormData();
-        formData.append('applicant_name', applicantName);
-        formData.append('applicant_phone', applicantPhone);
-        formData.append('taluka', selectedTaluka);
-        formData.append('gram_panchayat', selectedPanchayat);
-        formData.append('grievance_text', grievanceText);
-        formData.append('audio_file', audioBlob, 'citizen_voice.webm');
-        res = await api.submitVoice(formData);
-      } else {
-        res = await api.submitText({
-          applicant_name: applicantName,
-          applicant_phone: applicantPhone,
-          taluka: selectedTaluka,
-          gram_panchayat: selectedPanchayat,
-          grievance_text: grievanceText,
-          channel: usedVoiceInput ? "Voice (Gujarati)" : "Web Form"
-        });
-      }
+      res = await api.submitText({
+        applicant_name: applicantName,
+        applicant_phone: applicantPhone,
+        taluka: selectedTaluka,
+        gram_panchayat: selectedPanchayat,
+        grievance_text: grievanceText,
+        channel: usedVoiceInput ? "Voice (Gujarati)" : "Web Form"
+      });
 
       setSubmissionResult(res.data);
       setGrievanceText('');
@@ -417,8 +399,35 @@ export default function App() {
 
               {/* Big Gujarati Voice Recording Control */}
               <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center justify-center text-center">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  {lang === 'gu' ? 'ગુજરાતી અવાજ (વોઇસ) ઇનપુટ' : 'Gujarati Voice Input'}
+                <div className="flex flex-col sm:flex-row items-center justify-between w-full mb-3 gap-2">
+                  <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    {lang === 'gu' ? 'ગુજરાતી અવાજ (વોઇસ) ઇનપુટ' : 'Voice Input to Text'}
+                  </div>
+                  
+                  {/* Speech Language Selector */}
+                  <div className="flex text-xs bg-slate-200 p-0.5 rounded-lg font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setSpeechLang('gu-IN')}
+                      className={`px-2.5 py-1 rounded-md transition ${speechLang === 'gu-IN' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
+                    >
+                      ગુજરાતી (gu-IN)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpeechLang('en-IN')}
+                      className={`px-2.5 py-1 rounded-md transition ${speechLang === 'en-IN' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
+                    >
+                      English (en-IN)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpeechLang('hi-IN')}
+                      className={`px-2.5 py-1 rounded-md transition ${speechLang === 'hi-IN' ? 'bg-indigo-600 text-white font-bold shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
+                    >
+                      हिंदी (hi-IN)
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -429,6 +438,7 @@ export default function App() {
                       ? 'bg-red-600 text-white animate-pulse ring-4 ring-red-300' 
                       : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-200'
                   }`}
+                  title={isRecording ? "બોલવાનું બંધ કરવા ક્લિક કરો" : "બોલવા માટે ક્લિક કરો"}
                 >
                   {isRecording ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
                 </button>
@@ -437,17 +447,18 @@ export default function App() {
                   {isRecording ? (
                     <span className="text-red-600 font-bold flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                      {t.voiceRecording}
-                    </span>
-                  ) : isTranscribing ? (
-                    <span className="text-indigo-600 font-bold flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                      {lang === 'gu' ? 'ગુજરાતી અવાજ લખાણમાં રૂપાંતરિત થઈ રહ્યો છે...' : 'Transcribing Gujarati voice...'}
+                      {lang === 'gu' ? 'તમારો અવાજ સાંભળી રહ્યો છે... બોલો (નીચે આપોઆપ ટાઇપ થશે)...' : 'Listening... Speak now (auto-typing below)...'}
                     </span>
                   ) : (
                     <span>{t.voiceBtnStart}</span>
                   )}
                 </div>
+
+                {speechError && (
+                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium w-full text-center">
+                    ⚠️ {speechError}
+                  </div>
+                )}
 
                 {/* Gujarati Quick Voice Presets for Testing */}
                 <div className="mt-4 pt-3 border-t border-slate-200 w-full text-left">

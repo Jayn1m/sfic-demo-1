@@ -63,14 +63,20 @@ async def transcribe_gujarati_audio(audio_bytes: bytes, original_filename: str =
                     "is_simulated": False
                 }
             except Exception as e:
-                print(f"Gemini Audio STT error, falling back to simulated Gujarati demo voice: {e}")
+                print(f"Gemini Audio STT error: {e}")
+                return {
+                    "transcript_gu": "",
+                    "summary_en": "",
+                    "error": f"Audio processing error: {str(e)}",
+                    "is_simulated": False
+                }
 
-        # Hackathon Demo Voice Fallback:
-        # If no audio or no API key, provides a realistic Gujarati sample
+        # If no client or API key is not configured
         return {
-            "transcript_gu": "અમારા ગામ પાળિયાદમાં મુખ્ય ચોકડી પાસે પીવાના પાણીની પાઈપલાઈન લીક થાય છે અને ગંદુ પાણી આવે છે. કૃપા કરીને તાત્કાલિક રીપેર કરાવો.",
-            "summary_en": "Drinking water pipeline leakage and dirty water near main square in Paliyad village.",
-            "is_simulated": True
+            "transcript_gu": "",
+            "summary_en": "",
+            "error": "Gemini API key is not configured in backend/.env. Use browser microphone speech recognition directly.",
+            "is_simulated": False
         }
     finally:
         if os.path.exists(tmp_path):
