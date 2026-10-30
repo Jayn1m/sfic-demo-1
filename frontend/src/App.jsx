@@ -32,9 +32,12 @@ export default function App() {
 
   // Voice Recording State
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
+  const [usedVoiceInput, setUsedVoiceInput] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recognitionRef = useRef(null);
 
   // Tracking State
   const [trackQuery, setTrackQuery] = useState('');
@@ -112,6 +115,40 @@ export default function App() {
 
   // Voice Recording Handlers
   const startRecording = async () => {
+    setAudioBlob(null);
+    setUsedVoiceInput(true);
+
+    // 1. In-browser live SpeechRecognition (Types Gujarati text live into Grievance Description as user speaks)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'gu-IN'; // Gujarati (India)
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognitionRef.current = recognition;
+
+        recognition.onresult = (event) => {
+          let fullTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            fullTranscript += event.results[i][0].transcript;
+          }
+          if (fullTranscript.trim()) {
+            setGrievanceText(fullTranscript);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          console.warn("Speech recognition notice:", event.error);
+        };
+
+        recognition.start();
+      } catch (err) {
+        console.warn("Speech recognition init notice:", err);
+      }
+    }
+
+    // 2. MediaRecorder for high-fidelity audio capture & backend STT fallback
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -123,9 +160,34 @@ export default function App() {
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(blob);
+
+        // Stop all audio stream tracks
+        stream.getTracks().forEach((track) => track.stop());
+
+        // If SpeechRecognition did not populate text, transcribe via backend STT into Grievance Description
+        setGrievanceText((currentText) => {
+          if (!currentText || currentText.trim().length === 0) {
+            setIsTranscribing(true);
+            const formData = new FormData();
+            formData.append('audio_file', blob, 'citizen_voice.webm');
+            api.transcribeVoice(formData)
+              .then((res) => {
+                if (res.data?.transcript_gu) {
+                  setGrievanceText(res.data.transcript_gu);
+                }
+              })
+              .catch((err) => {
+                console.error("Backend voice transcription error:", err);
+              })
+              .finally(() => {
+                setIsTranscribing(false);
+              });
+          }
+          return currentText;
+        });
       };
 
       mediaRecorderRef.current.start();
@@ -137,12 +199,17 @@ export default function App() {
       setTimeout(() => {
         setIsRecording(false);
         setGrievanceText("અમારા ગામ પાળિયાદમાં પાણીની પાઈપલાઈન તૂટી ગઈ છે અને છેલ્લા ૪ દિવસથી પીવાનું પાણી નથી આવતું. તાત્કાલિક સમારકામ કરાવો.");
-      }, 3500);
+      }, 3000);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
@@ -172,6 +239,7 @@ export default function App() {
         formData.append('applicant_phone', applicantPhone);
         formData.append('taluka', selectedTaluka);
         formData.append('gram_panchayat', selectedPanchayat);
+        formData.append('grievance_text', grievanceText);
         formData.append('audio_file', audioBlob, 'citizen_voice.webm');
         res = await api.submitVoice(formData);
       } else {
@@ -181,13 +249,14 @@ export default function App() {
           taluka: selectedTaluka,
           gram_panchayat: selectedPanchayat,
           grievance_text: grievanceText,
-          channel: audioBlob ? "Voice (Gujarati)" : "Web Form"
+          channel: usedVoiceInput ? "Voice (Gujarati)" : "Web Form"
         });
       }
 
       setSubmissionResult(res.data);
       setGrievanceText('');
       setAudioBlob(null);
+      setUsedVoiceInput(false);
     } catch (err) {
       alert("Error submitting grievance: " + (err.response?.data?.detail || err.message));
     } finally {
@@ -369,6 +438,11 @@ export default function App() {
                     <span className="text-red-600 font-bold flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
                       {t.voiceRecording}
+                    </span>
+                  ) : isTranscribing ? (
+                    <span className="text-indigo-600 font-bold flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                      {lang === 'gu' ? 'ગુજરાતી અવાજ લખાણમાં રૂપાંતરિત થઈ રહ્યો છે...' : 'Transcribing Gujarati voice...'}
                     </span>
                   ) : (
                     <span>{t.voiceBtnStart}</span>

@@ -114,18 +114,33 @@ async def submit_complaint_text(
     return complaint
 
 
+@router.post("/transcribe-voice")
+async def transcribe_voice(
+    audio_file: UploadFile = File(...)
+):
+    audio_bytes = await audio_file.read()
+    stt_result = await transcribe_gujarati_audio(audio_bytes, audio_file.filename or "voice.webm")
+    return stt_result
+
+
 @router.post("/submit-voice", response_model=ComplaintResponse)
 async def submit_complaint_voice(
     applicant_name: str = Form(...),
     applicant_phone: str = Form(...),
     taluka: str = Form(...),
     gram_panchayat: str = Form(...),
-    audio_file: UploadFile = File(...),
+    grievance_text: Optional[str] = Form(None),
+    audio_file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db)
 ):
-    audio_bytes = await audio_file.read()
-    stt_result = await transcribe_gujarati_audio(audio_bytes, audio_file.filename or "recording.webm")
-    transcribed_gu = stt_result.get("transcript_gu") or "અમારા ગામમાં પાણીની સમસ્યા છે."
+    if grievance_text and grievance_text.strip():
+        transcribed_gu = grievance_text.strip()
+    elif audio_file:
+        audio_bytes = await audio_file.read()
+        stt_result = await transcribe_gujarati_audio(audio_bytes, audio_file.filename or "recording.webm")
+        transcribed_gu = stt_result.get("transcript_gu") or "અમારા ગામમાં પાણીની સમસ્યા છે."
+    else:
+        transcribed_gu = "અમારા ગામમાં પાણીની સમસ્યા છે."
 
     payload = ComplaintCreateText(
         applicant_name=applicant_name,

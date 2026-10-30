@@ -8,6 +8,9 @@ export const api = {
   submitVoice: (formData) => axios.post(`${API_BASE}/complaints/submit-voice`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  transcribeVoice: (formData) => axios.post(`${API_BASE}/complaints/transcribe-voice`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   getComplaint: (ticketOrPhone) => axios.get(`${API_BASE}/complaints/${ticketOrPhone}`),
   listComplaints: (params) => axios.get(`${API_BASE}/complaints/`, { params }),
   updateStatus: (ticketId, data) => axios.patch(`${API_BASE}/complaints/${ticketId}/status`, data),
