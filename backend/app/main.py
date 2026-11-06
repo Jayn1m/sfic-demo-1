@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from backend.app.database import init_db
+from backend.app.database import init_db, is_serverless
 from backend.app.services.sla_tracker import start_sla_scheduler
 from backend.app.routers import complaints, admin
 
@@ -24,11 +24,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Notice auto-seeding: {e}")
 
-    print("[INIT] Starting SLA deadline tracker background scheduler...")
-    try:
-        start_sla_scheduler()
-    except Exception as e:
-        print(f"Notice starting scheduler: {e}")
+    if not is_serverless:
+        print("[INIT] Starting SLA deadline tracker background scheduler...")
+        try:
+            start_sla_scheduler()
+        except Exception as e:
+            print(f"Notice starting scheduler: {e}")
     yield
     # Shutdown
 
