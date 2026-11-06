@@ -129,6 +129,76 @@ export default function App() {
     setSelectedPanchayat(panchayats[0] || '');
   };
 
+  // Intelligent Gujarati / Indic speech deduplicator
+  // Eliminates repeated words, phrase stutter, and Android WebKit cumulative prefix loops
+  const cleanSpeechDuplicates = (text) => {
+    if (!text) return '';
+    let str = text.replace(/\s+/g, ' ').trim();
+    let words = str.split(' ');
+    if (words.length <= 1) return str;
+
+    // 1. Remove consecutive identical words (e.g. 'અમારા અમારા' -> 'અમારા')
+    let deduped = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i].toLowerCase() !== words[i - 1].toLowerCase()) {
+        deduped.push(words[i]);
+      }
+    }
+
+    // 2. Remove consecutive duplicate phrases of length 2 to 8
+    let w = deduped;
+    let cleaned = [];
+    let i = 0;
+    while (i < w.length) {
+      let matchedLen = 0;
+      let maxL = Math.min(8, Math.floor((w.length - i) / 2));
+      for (let len = maxL; len >= 2; len--) {
+        let p1 = w.slice(i, i + len).join(' ').toLowerCase();
+        let p2 = w.slice(i + len, i + 2 * len).join(' ').toLowerCase();
+        if (p1 === p2) {
+          matchedLen = len;
+          break;
+        }
+      }
+      if (matchedLen > 0) {
+        cleaned.push(...w.slice(i, i + matchedLen));
+        i += matchedLen * 2;
+        while (
+          i + matchedLen <= w.length && 
+          w.slice(i, i + matchedLen).join(' ').toLowerCase() === 
+          cleaned.slice(cleaned.length - matchedLen).join(' ').toLowerCase()
+        ) {
+          i += matchedLen;
+        }
+      } else {
+        cleaned.push(w[i]);
+        i++;
+      }
+    }
+
+    // 3. Remove expanding prefix stutters (where words[0..k] is a strict prefix of subsequent text)
+    function removePrefixStutter(arr) {
+      for (let k = 1; k < arr.length; k++) {
+        if (arr[k].toLowerCase() === arr[0].toLowerCase()) {
+          let prefixLen = 0;
+          while (
+            prefixLen < k && 
+            k + prefixLen < arr.length && 
+            arr[prefixLen].toLowerCase() === arr[k + prefixLen].toLowerCase()
+          ) {
+            prefixLen++;
+          }
+          if (prefixLen === k) {
+            return removePrefixStutter(arr.slice(k));
+          }
+        }
+      }
+      return arr;
+    }
+
+    return removePrefixStutter(cleaned).join(' ');
+  };
+
   // Voice Recording Handlers
   const startRecording = () => {
     setSpeechError('');
@@ -157,7 +227,8 @@ export default function App() {
       recognition.maxAlternatives = 1;
       recognitionRef.current = recognition;
 
-      let accumulatedFinal = '';
+      // Retain clean base text if user already had typed or dictated something
+      const baseText = cleanSpeechDuplicates(grievanceText.trim());
 
       recognition.onstart = () => {
         setIsRecording(true);
@@ -165,18 +236,27 @@ export default function App() {
       };
 
       recognition.onresult = (event) => {
-        let currentInterim = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        let finalTranscript = '';
+        let interimTranscript = '';
+
+        // Iterate directly through event.results rather than external += accumulator
+        // to prevent Android Chrome repeated cumulative text stutter
+        for (let i = 0; i < event.results.length; i++) {
           const res = event.results[i];
+          const text = res[0] ? res[0].transcript : '';
           if (res.isFinal) {
-            accumulatedFinal += res[0].transcript + ' ';
+            finalTranscript += text + ' ';
           } else {
-            currentInterim += res[0].transcript;
+            interimTranscript += text;
           }
         }
-        const fullLiveText = (accumulatedFinal + currentInterim).trim();
+
+        let fullLiveText = (finalTranscript + interimTranscript).trim();
+        fullLiveText = cleanSpeechDuplicates(fullLiveText);
+
         if (fullLiveText) {
-          setGrievanceText(fullLiveText);
+          const combined = baseText ? `${baseText} ${fullLiveText}` : fullLiveText;
+          setGrievanceText(cleanSpeechDuplicates(combined));
         }
       };
 
@@ -224,6 +304,8 @@ export default function App() {
       }
     }
     setIsRecording(false);
+    // Sanitize any trailing duplicates on stop
+    setGrievanceText(prev => cleanSpeechDuplicates(prev));
   };
 
   // Preset Gujarati Voice/Text Grievance helper
@@ -236,7 +318,8 @@ export default function App() {
   // Submit Grievance
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!applicantName || !applicantPhone || !grievanceText) {
+    const cleanedGrievance = cleanSpeechDuplicates(grievanceText.trim());
+    if (!applicantName || !applicantPhone || !cleanedGrievance) {
       alert("કૃપા કરીને નામ, ફોન અને ફરિયાદની વિગત દાખલ કરો.");
       return;
     }
@@ -249,7 +332,7 @@ export default function App() {
         applicant_phone: applicantPhone,
         taluka: selectedTaluka,
         gram_panchayat: selectedPanchayat,
-        grievance_text: grievanceText,
+        grievance_text: cleanedGrievance,
         channel: usedVoiceInput ? "Voice (Gujarati)" : "Web Form"
       });
 

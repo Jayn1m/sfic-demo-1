@@ -11,7 +11,7 @@ from backend.app.models import Complaint, ComplaintTimeline, SMSNotificationLog
 from backend.app.schemas import (
     ComplaintCreateText, ComplaintResponse, ComplaintDetailResponse, StatusUpdateRequest
 )
-from backend.app.services.ai_classifier import classify_and_route_complaint
+from backend.app.services.ai_classifier import classify_and_route_complaint, clean_speech_duplicates
 from backend.app.services.audio_stt import transcribe_gujarati_audio
 from backend.app.services.clustering import detect_recurring_complaint
 from backend.app.services.notification import send_citizen_sms_update
@@ -26,8 +26,10 @@ async def submit_complaint_text(
     payload: ComplaintCreateText,
     db: AsyncSession = Depends(get_db)
 ):
+    cleaned_text = clean_speech_duplicates(payload.grievance_text)
+
     classification = await classify_and_route_complaint(
-        text_gu=payload.grievance_text,
+        text_gu=cleaned_text,
         taluka=payload.taluka,
         gram_panchayat=payload.gram_panchayat
     )
@@ -45,7 +47,7 @@ async def submit_complaint_text(
     existing_items = res_existing.all()
     
     is_recurring, cluster_id = detect_recurring_complaint(
-        payload.grievance_text,
+        cleaned_text,
         [(row[0], row[1]) for row in existing_items]
     )
 
@@ -56,7 +58,7 @@ async def submit_complaint_text(
         taluka=payload.taluka,
         gram_panchayat=payload.gram_panchayat,
         channel=payload.channel or "Web Form",
-        input_text_gu=payload.grievance_text,
+        input_text_gu=cleaned_text,
         translated_text_en=classification.get("summary_en"),
         department_key=classification["department_key"],
         department_name_gu=classification["department_name_gu"],
