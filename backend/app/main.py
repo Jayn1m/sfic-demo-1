@@ -13,14 +13,20 @@ from backend.app.routers import complaints, admin
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables and auto-seed if fresh
+    print(f"[INIT] Serverless mode: {is_serverless}")
     print("[INIT] Creating SQLite tables...")
-    await init_db()
+    try:
+        await init_db()
+        print("[INIT] SQLite tables ready.")
+    except Exception as e:
+        print(f"[ERROR] init_db notice: {e}")
 
     try:
         from backend.app.database import async_session
         from backend.app.routers.admin import seed_data_internal
         async with async_session() as session:
             await seed_data_internal(session, only_if_empty=True)
+            print("[INIT] Auto-seed checked.")
     except Exception as e:
         print(f"Notice auto-seeding: {e}")
 
