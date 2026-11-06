@@ -30,7 +30,9 @@ export const translations = {
     hotspotsTitle: "વારંવાર આવતી ફરિયાદો (AI ક્લસ્ટરિંગ & રૂટ કોઝ એનાલિસિસ)",
     smsHistoryTitle: "નાગરિકને મોકલેલ SMS / WhatsApp સૂચનાઓ",
     timelineTitle: "કેસ પ્રોગ્રેસ ટાઈમલાઈન",
-    assignedOfficer: "સોંપાયેલ અધિકારીશ્રી"
+    assignedOfficer: "સોંપાયેલ અધિકારીશ્રી",
+    themeDay: "દિવસ (સફેદ)",
+    themeNight: "રાત્રિ (ડાર્ક)"
   },
   en: {
     appTitle: "District Development Office - Botad",
@@ -63,7 +65,9 @@ export const translations = {
     hotspotsTitle: "Recurring Grievance Hotspots (Root Cause Analysis)",
     smsHistoryTitle: "SMS / WhatsApp Notifications Dispatched",
     timelineTitle: "Application Audit Timeline",
-    assignedOfficer: "Assigned Redressal Officer"
+    assignedOfficer: "Assigned Redressal Officer",
+    themeDay: "Day Theme (White)",
+    themeNight: "Night Theme (Dark)"
   }
 };
 
