@@ -77,6 +77,14 @@ async def seed_sample_data(db: AsyncSession = Depends(get_db)):
     Populate realistic demo complaints across Botad, Barwala, Gadhada, and Ranpur
     with varying SLA deadlines, status, and voice notes for live demo presentations.
     """
+    return await seed_data_internal(db)
+
+async def seed_data_internal(db: AsyncSession, only_if_empty: bool = False):
+    if only_if_empty:
+        check = await db.execute(select(Complaint))
+        if len(check.scalars().all()) > 0:
+            return {"status": "skipped", "seeded_count": 0}
+
     sample_grievances = [
         ("હરિભાઈ પટેલ", "9825100001", "Botad (બોટાદ)", "Paliyad (પાળિયાદ)", "અમારા ગામમાં છેલ્લા ૪ દિવસથી પીવાનું પાણી નથી આવતું, પાઈપલાઈન તૂટી ગઈ છે.", "water_supply", 48, False, "IN_PROGRESS"),
         ("ગીતાબેન મકવાણા", "9825100002", "Botad (બોટાદ)", "Paliyad (પાળિયાદ)", "મુખ્ય ચોક પાસે પીવાના પાણીની લાઈન લીકેજ થવાથી રસ્તા પર પાણી ભરાયું છે.", "water_supply", 48, True, "ESCALATED"),
@@ -148,4 +156,5 @@ async def seed_sample_data(db: AsyncSession = Depends(get_db)):
 
     await db.commit()
     return {"status": "success", "seeded_count": created_count}
+
 

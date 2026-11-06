@@ -12,9 +12,18 @@ from backend.app.routers import complaints, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create tables and launch background SLA scheduler
+    # Startup: Create tables and auto-seed if fresh
     print("[INIT] Creating SQLite tables...")
     await init_db()
+
+    try:
+        from backend.app.database import async_session
+        from backend.app.routers.admin import seed_data_internal
+        async with async_session() as session:
+            await seed_data_internal(session, only_if_empty=True)
+    except Exception as e:
+        print(f"Notice auto-seeding: {e}")
+
     print("[INIT] Starting SLA deadline tracker background scheduler...")
     try:
         start_sla_scheduler()

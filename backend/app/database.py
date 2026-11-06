@@ -2,7 +2,9 @@ import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from backend.app.models import Base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./botad_grievances.db")
+# On Vercel serverless environment, the root is read-only, so use /tmp for SQLite
+default_db = "sqlite+aiosqlite:////tmp/botad_grievances.db" if os.getenv("VERCEL") else "sqlite+aiosqlite:///./botad_grievances.db"
+DATABASE_URL = os.getenv("DATABASE_URL", default_db)
 
 engine = create_async_engine(
     DATABASE_URL,
