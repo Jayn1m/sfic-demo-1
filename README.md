@@ -5,6 +5,13 @@
 
 ---
 
+### 🌐 Live Production Deployment
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live_Demo-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://sfic-demo-1.vercel.app)
+- **Live Vercel Website:** **[https://sfic-demo-1.vercel.app](https://sfic-demo-1.vercel.app)**
+- **GitHub Repository:** **[https://github.com/Jayn1m/sfic-demo-1](https://github.com/Jayn1m/sfic-demo-1)**
+
+---
+
 ## 🎯 Problem Overview & Solutions Delivered
 
 | Problem Mentioned in PS000190 | Solution Implemented in this Project |
@@ -59,8 +66,9 @@ Double-click `start_all.bat` in the root folder, or execute:
 .\run_frontend.bat
 ```
 
-Once running:
-- **Citizen Portal**: [http://localhost:5173](http://localhost:5173)
+Once running / Hosted:
+- **Live Cloud Website (Vercel)**: [https://sfic-demo-1.vercel.app](https://sfic-demo-1.vercel.app)
+- **Local Citizen Portal**: [http://localhost:5173](http://localhost:5173)
 - **FastAPI Interactive Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
