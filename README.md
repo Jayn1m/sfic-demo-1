@@ -100,3 +100,11 @@ To enable live Google Gemini AI transcription and reasoning:
    ```
 *(Note: If no API key is provided, the system seamlessly operates in **Intelligent Offline/Demo Mode** using rule-based Gujarati keyword classification and voice emulation, ensuring 100% fail-safe performance during hackathon judging).*
 
+---
+
+## 🌟 Recent Production Updates & Enhancements
+- 🔄 **One-Click Demo Seed Generator**: Dedicated header action to preload realistic sample grievances across Botad, Barwala, Gadhada, and Ranpur, dynamically populating SLA countdowns and charts.
+- 📱 **Mobile & Android Voice Deduplication**: Speech recognition engine equipped with intelligent prefix deduplication to prevent repetitive speech loops on mobile Chrome browsers.
+- 🌓 **Day / Night Theme Switcher**: Instant theme toggle providing optimal accessibility and contrast for government officers in both bright and low-light environments.
+- ⚡ **Serverless Vercel Deployment**: Fully configured serverless FastAPI backend with in-memory SQLite journaling and instant SPA routing.
+
