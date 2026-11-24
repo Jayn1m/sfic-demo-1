@@ -1,3 +1,4 @@
+import uuid
 import random
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
@@ -6,7 +7,7 @@ from sqlalchemy import select, func
 
 from backend.app.database import get_db
 from backend.app.models import Complaint, ComplaintTimeline, SMSNotificationLog
-from backend.app.data.botad_meta import TALUKAS_AND_PANCHAYATS, DEPARTMENTS
+from backend.app.data.botad_meta import TALUKAS_AND_PANCHAYATS, DEPARTMENTS, get_assigned_officer_for_taluka
 
 router = APIRouter(prefix="/api/admin", tags=["Admin & Analytics"])
 
@@ -104,7 +105,8 @@ async def seed_data_internal(db: AsyncSession, only_if_empty: bool = False):
         created_at = now - timedelta(hours=sla_h + 10 if is_overdue else 4)
         deadline = created_at + timedelta(hours=sla_h)
         
-        ticket_id = f"BOTAD-{random.randint(1000, 9999)}"
+        ticket_id = f"BOTAD-{uuid.uuid4().hex[:6].upper()}"
+        assigned_officer = get_assigned_officer_for_taluka(dept_key, taluka)
         is_rec = "પાળિયાદ" in panchayat and dept_key == "water_supply"
 
         complaint = Complaint(
@@ -119,7 +121,7 @@ async def seed_data_internal(db: AsyncSession, only_if_empty: bool = False):
             department_key=dept_key,
             department_name_gu=dept["name_gu"],
             department_name_en=dept["name_en"],
-            assigned_officer=dept["officer"],
+            assigned_officer=assigned_officer,
             priority="HIGH" if is_overdue else "MEDIUM",
             ai_confidence=92,
             created_at=created_at,
@@ -139,7 +141,7 @@ async def seed_data_internal(db: AsyncSession, only_if_empty: bool = False):
             timestamp=created_at,
             action="Registered & Routed",
             actor="AI Routing Engine",
-            remarks=f"Categorized into {dept['name_gu']} ({dept['officer']})"
+            remarks=f"Categorized into {dept['name_gu']} ({assigned_officer})"
         )
         db.add(timeline)
 
